@@ -76,7 +76,7 @@ export default function VerifyOTP() {
         if (code.length < 6) { setError('Please enter all 6 digits.'); return; }
         setLoading(true); setError('');
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/verify-otp', { email, otp: code });
+            const res = await axios.post('http://localhost:8000/api/auth/verify-otp', { email, otp: code });
             // Store user + token
             localStorage.setItem('user', JSON.stringify(res.data));
             setSuccess(true);
@@ -91,7 +91,7 @@ export default function VerifyOTP() {
         if (cooldown > 0) return;
         setResending(true); setError('');
         try {
-            await axios.post('http://localhost:5000/api/auth/resend-otp', { email });
+            await axios.post('http://localhost:8000/api/auth/resend-otp', { email });
             setOtp(['', '', '', '', '', '']);
             setCooldown(RESEND_COOLDOWN);
             inputRefs.current[0]?.focus();

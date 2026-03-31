@@ -4,7 +4,6 @@ const Vote = require('../models/Vote');
 const Comment = require('../models/Comment');
 const User = require('../models/User');
 const mongoose = require('mongoose');
-
 // @desc    Get all complaints
 // @route   GET /api/complaints
 // @access  Public
@@ -108,6 +107,7 @@ const getMyComplaints = asyncHandler(async (req, res) => {
     res.status(200).json(complaints);
 });
 
+
 // @desc    Create complaint
 // @route   POST /api/complaints
 // @access  Private
@@ -120,15 +120,18 @@ const createComplaint = asyncHandler(async (req, res) => {
     // Auto-assignment logic: Find volunteer in same location (simple string match on address)
     // In a real app, this would use geospatial query on location_coords
     const addressKeyword = req.body.address ? req.body.address.split(' ')[0] : '';
-    const volunteer = addressKeyword ? await User.findOne({
+    const volunteer =  await User.findOne({
         role: 'volunteer',
-        location: { $regex: new RegExp(addressKeyword, 'i') } // Match city/area loosely
-    }) : null;
-
+        location: { $regex: req.body.address,$options: 'i' } // Match city/area loosely
+    }) ;
+    let issueType = req.body.issueType;
+    if (!issueType) {
+        issueType = await detectIssueType(req.body.description);
+    }
     const complaint = await Complaint.create({
         user_id: req.user.id,
         title: req.body.title,
-        issueType: req.body.issueType,
+        issueType: issueType,
         description: req.body.description,
         address: req.body.address,
         location_coords: req.body.location ? { lat: req.body.location.lat, lng: req.body.location.lng } : undefined,

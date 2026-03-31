@@ -23,14 +23,16 @@ const run = async () => {
         // Print users
         users.forEach(u => console.log(`- ${u.name} (${u.email}) [${u.role}]`));
 
-        // Find sarvaghna
-        let targetUser = users.find(u => u.name.toLowerCase().includes('sarvaghna'));
-        if (!targetUser) {
-            console.log('Sarvaghna not found, using first user.');
+        // Find sampada
+    const email = 'dalisampada@gmail.com'; // change this
+
+    let targetUser = users.find(u => u.email === email);        
+    if (!targetUser) {
+            console.log('Sampada not found, using first user.');
             targetUser = users[0];
         }
 
-        console.log(`Promoting ${targetUser.name} to admin...`);
+        console.log(`Promoting ${targetUser.email} to admin...`);
         targetUser.role = 'admin';
         await targetUser.save();
         console.log('Success! User is now admin.');

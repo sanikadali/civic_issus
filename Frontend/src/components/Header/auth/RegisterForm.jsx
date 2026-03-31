@@ -78,6 +78,7 @@ export default function RegisterForm() {
   };
 
   const handleSubmit = async (e) => {
+    console.log("Submit clicked");
     e.preventDefault();
     setApiError('');
     const newErrors = {};
@@ -92,7 +93,7 @@ export default function RegisterForm() {
     }
     setLoading(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/register', {
+      const res = await axios.post('http://localhost:8000/api/auth/register', {
         name: form.name, email: form.email, password: form.password,
       });
       // Redirect to OTP page, pass email (and devOtp if dev mode) via router state

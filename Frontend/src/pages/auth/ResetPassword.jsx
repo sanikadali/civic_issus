@@ -38,7 +38,7 @@ function ResetPassword() {
         if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
         setLoading(true);
         try {
-            await axios.post(`http://localhost:5000/api/users/reset-password/${token}`, { password });
+            await axios.post(`http://localhost:8000/api/users/reset-password/${token}`, { password });
             setSuccess(true);
             setTimeout(() => navigate('/login'), 3000);
         } catch (err) {

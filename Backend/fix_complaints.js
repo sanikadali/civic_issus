@@ -5,48 +5,62 @@ const Complaint = require('./models/Complaint');
 const User = require('./models/User');
 
 async function fixOrphanedComplaints() {
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log('Connected to MongoDB\n');
+    try {
+        await mongoose.connect(process.env.MONGO_URI);
+        console.log('Connected to MongoDB\n');
 
-    const users = await User.find({}).select('_id name email');
-    console.log('Current users in DB:');
-    users.forEach(u => console.log(`  ${u._id} — ${u.name} (${u.email})`));
+        // Get all users
+        const users = await User.find({}).select('_id name email');
 
-    if (users.length === 0) {
-        console.log('No users found! Something is wrong.');
-        await mongoose.disconnect();
-        return;
-    }
+        console.log('Current users in DB:');
+        users.forEach(u => {
+            console.log(`  ${u._id} — ${u.name} (${u.email})`);
+        });
 
-    // Find orphaned complaints (user_id doesn't match any user)
-    const orphaned = [];
-    const complaints = await Complaint.find({});
-    for (const c of complaints) {
-        const owner = users.find(u => u._id.toString() === (c.user_id ? c.user_id.toString() : ''));
-        if (!owner) {
-            orphaned.push(c);
+        if (users.length === 0) {
+            console.log('\n❌ No users found! Aborting...');
+            return;
         }
-    }
 
-    console.log(`\nFound ${orphaned.length} orphaned complaint(s).`);
+        // Create a Set for fast lookup
+        const userIds = new Set(users.map(u => u._id.toString()));
 
-    if (orphaned.length === 0) {
-        console.log('Nothing to fix!');
+        // Find orphaned complaints
+        const complaints = await Complaint.find({});
+        const orphaned = complaints.filter(c =>
+            !c.user_id || !userIds.has(c.user_id.toString())
+        );
+
+        console.log(`\nFound ${orphaned.length} orphaned complaint(s).`);
+
+        if (orphaned.length === 0) {
+            console.log('✅ Nothing to fix!');
+            return;
+        }
+
+        // Choose user (first user)
+        const targetUser = users[0];
+        console.log(`\nReassigning to: ${targetUser.name} (${targetUser._id})`);
+
+        // Collect IDs
+        const orphanIds = orphaned.map(c => c._id);
+
+        // ✅ Single DB update (FAST)
+        const result = await Complaint.updateMany(
+            { _id: { $in: orphanIds } },
+            { $set: { user_id: targetUser._id } }
+        );
+
+        console.log(`\n✅ Updated ${result.modifiedCount} complaint(s)`);
+
+        console.log('\nDone! All orphaned complaints fixed.');
+
+    } catch (error) {
+        console.error('❌ Error:', error.message);
+    } finally {
         await mongoose.disconnect();
-        return;
+        console.log('\nDisconnected from MongoDB');
     }
-
-    // Assign first user as owner of all orphaned complaints
-    const targetUser = users[0];
-    console.log(`\nReassigning ${orphaned.length} orphaned complaint(s) to: ${targetUser.name} (${targetUser._id})`);
-
-    for (const c of orphaned) {
-        await Complaint.findByIdAndUpdate(c._id, { user_id: targetUser._id });
-        console.log(`  Fixed complaint: "${c.title}" (${c._id})`);
-    }
-
-    console.log('\nDone! All orphaned complaints reassigned.');
-    await mongoose.disconnect();
 }
 
-fixOrphanedComplaints().catch(console.error);
+fixOrphanedComplaints();

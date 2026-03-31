@@ -5,7 +5,6 @@ const path = require('path');
 // Load env vars
 dotenv.config({ path: path.join(__dirname, '.env') });
 
-console.log('MONGO_URI:', process.env.MONGO_URI);
 
 const connectDB = async () => {
     try {

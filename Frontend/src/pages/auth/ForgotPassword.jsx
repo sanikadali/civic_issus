@@ -18,7 +18,7 @@ function ForgotPassword() {
         if (!isValidEmail(email)) { setError('Please enter a valid email address.'); return; }
         setLoading(true);
         try {
-            const res = await axios.post('http://localhost:5000/api/users/forgot-password', { email });
+            const res = await axios.post('http://localhost:8000/api/users/forgot-password', { email });
             setPreviewUrl(res.data?.previewUrl || '');
             setSubmitted(true);
         } catch (err) {

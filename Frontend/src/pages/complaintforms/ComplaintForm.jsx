@@ -50,16 +50,38 @@ const ComplaintForm = () => {
         else { alert('Please login to report an issue.'); navigate('/login'); }
     }, [navigate]);
 
-    function LocationMarker() {
-        const map = useMapEvents({
-            click(e) {
-                setPosition(e.latlng);
-                setFormData(prev => ({ ...prev, location: e.latlng }));
-                map.flyTo(e.latlng, map.getZoom());
-            },
-        });
-        return position ? <Marker position={position} /> : null;
+    function LocationHandler() {
+  const map = useMapEvents({
+    click: async (e) => {
+      const { lat, lng } = e.latlng;
+
+      setPosition(e.latlng);
+      map.flyTo(e.latlng, map.getZoom());
+
+      try {
+        const res = await axios.get(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
+        );
+
+        const address = res.data.display_name;
+
+        setFormData(prev => ({
+          ...prev,
+          address: address,
+          location: { lat, lng }
+        }));
+        setErrors(prev => ({
+  ...prev,
+  address: ''
+}));
+      } catch (err) {
+        console.error(err);
+      }
     }
+  });
+
+  return position ? <Marker position={position} /> : null;
+}
 
     const validateField = (name, value) => {
         if (!REQUIRED_FIELDS.includes(name)) return '';
@@ -107,12 +129,12 @@ const ComplaintForm = () => {
             el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
-        if (!user) { alert('You must be logged in.'); return; }
         setSubmitting(true);
         try {
-            await axios.post('http://localhost:5000/api/complaints', formData, {
-                headers: { Authorization: `Bearer ${user.token}` },
-            });
+            await axios.post('http://localhost:8000/api/complaints', formData, user?.token
+        ? { headers: { Authorization: `Bearer ${user.token}` } }
+        : {}
+    );
             setSuccess(true);
             setTimeout(() => navigate('/dashboard'), 1800);
         } catch (error) {
@@ -213,7 +235,7 @@ const ComplaintForm = () => {
                                     <FieldError msg={errors.issueType} />
                                 </div>
 
-                                {/* Priority — REQUIRED */}
+                                {/* Priority — REQUIRED */}                               
                                 <div>
                                     <label className="block text-gray-700 text-sm font-semibold mb-1.5">
                                         Priority Level <Req />
@@ -314,10 +336,11 @@ const ComplaintForm = () => {
                                     <span className="text-gray-400 font-normal text-xs ml-1.5">(Optional)</span>
                                 </label>
                                 <div className="h-64 w-full rounded-2xl overflow-hidden border border-gray-200 relative z-0">
-                                    <MapContainer center={[40.7128, -74.0060]} zoom={13} style={{ height: '100%', width: '100%' }}>
+                                    <MapContainer center={[19.053032, 72.870598]} zoom={13} style={{ height: '100%', width: '100%' }}>
                                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' />
-                                        <LocationMarker />
+                                    
+                                        <LocationHandler/>
                                     </MapContainer>
                                 </div>
                                 <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
@@ -332,7 +355,7 @@ const ComplaintForm = () => {
                     hover:scale-[1.02] active:scale-[0.98] transition-transform duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
                                     {submitting
                                         ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Submitting…</>
-                                        : <><Send size={17} /> Submit Report</>
+                                        : <><Send size={17} /> Submit Issue</>
                                     }
                                 </button>
                             </div>

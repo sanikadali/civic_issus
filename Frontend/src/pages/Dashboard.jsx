@@ -57,11 +57,11 @@ export default function Dashboard() {
     const navigate = useNavigate();
 
     const storedUser = localStorage.getItem('user');
-    const user = storedUser ? JSON.parse(storedUser) : null;
+    const user = storedUser ? JSON.parse(storedUser) : {};
 
     useEffect(() => {
         if (!user?.token) { navigate('/login'); return; }
-        axios.get('http://localhost:5000/api/complaints', { headers: { Authorization: `Bearer ${user.token}` } })
+        axios.get('http://localhost:8000/api/complaints/my', { headers: { Authorization: `Bearer ${user.token}` } })
             .then(res => setComplaints(res.data || []))
             .catch(() => setComplaints([]))
             .finally(() => setLoading(false));
@@ -91,7 +91,7 @@ export default function Dashboard() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 animate-slide-up">
                     <div>
                         <h1 className="text-2xl font-extrabold text-gray-900">
-                            Welcome back, <span className="text-primary">{user?.name?.split(' ')[0] || 'User'}</span> 👋
+                            Welcome back, <span className="text-primary">{user?.name ? user.name.split(' ')[0] : 'Guest'}</span> 👋
                         </h1>
                         <p className="text-gray-400 text-sm mt-1">Here's what's happening in your community</p>
                     </div>

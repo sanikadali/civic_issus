@@ -8,7 +8,7 @@ const transporter = nodemailer.createTransport({
 
 transporter.sendMail({
     from: `"CleanStreet" <${process.env.EMAIL_USER}>`,
-    to: 'brazilserver7032@gmail.com',
+    to: 'sanikadali70@gmail.com',
     subject: 'CleanStreet - OTP Test',
     html: '<h2>Your OTP is: <b>482931</b></h2><p>This is a test to confirm OTP delivery is working.</p>',
 }, (err, info) => {

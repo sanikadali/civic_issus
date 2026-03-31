@@ -21,7 +21,7 @@ const Profile = () => {
                 const storedUser = JSON.parse(localStorage.getItem('user'));
                 if (!storedUser?.token) { window.location.href = '/login'; return; }
                 const config = { headers: { Authorization: `Bearer ${storedUser.token}` } };
-                const res = await axios.get('http://localhost:5000/api/users/me', config);
+                const res = await axios.get('http://localhost:8000/api/users/me', config);
                 const data = { ...res.data, role: res.data.role || 'user', privacySettings: res.data.privacySettings || { profileVisibility: 'public', showEmail: true } };
                 setUser(data);
                 setFormData(data);
@@ -43,7 +43,7 @@ const Profile = () => {
         try {
             const storedUser = JSON.parse(localStorage.getItem('user'));
             const config = { headers: { Authorization: `Bearer ${storedUser.token}` } };
-            const res = await axios.put('http://localhost:5000/api/users/profile', formData, config);
+            const res = await axios.put('http://localhost:8000/api/users/profile', formData, config);
             localStorage.setItem('user', JSON.stringify({ ...storedUser, ...res.data }));
             setUser({ ...res.data, role: res.data.role || user.role });
             setIsEditing(false);
@@ -58,7 +58,7 @@ const Profile = () => {
         if (passwordData.newPassword.length < 6) { setPasswordError('Password must be at least 6 characters'); return; }
         try {
             const storedUser = JSON.parse(localStorage.getItem('user'));
-            await axios.put('http://localhost:5000/api/users/profile', { currentPassword: passwordData.currentPassword, password: passwordData.newPassword }, { headers: { Authorization: `Bearer ${storedUser.token}` } });
+            await axios.put('http://localhost:8000/api/users/profile', { currentPassword: passwordData.currentPassword, password: passwordData.newPassword }, { headers: { Authorization: `Bearer ${storedUser.token}` } });
             alert('Password changed!');
             setShowPasswordModal(false);
             setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -69,7 +69,7 @@ const Profile = () => {
         e.preventDefault();
         try {
             const storedUser = JSON.parse(localStorage.getItem('user'));
-            const res = await axios.put('http://localhost:5000/api/users/profile', { privacySettings: privacyData }, { headers: { Authorization: `Bearer ${storedUser.token}` } });
+            const res = await axios.put('http://localhost:8000/api/users/profile', { privacySettings: privacyData }, { headers: { Authorization: `Bearer ${storedUser.token}` } });
             localStorage.setItem('user', JSON.stringify({ ...storedUser, ...res.data }));
             setUser({ ...user, privacySettings: res.data.privacySettings });
             alert('Privacy settings updated!');

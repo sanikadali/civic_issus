@@ -10,14 +10,6 @@ INDEXES:
   {
     "v": 2,
     "key": {
-      "username": 1
-    },
-    "name": "username_1",
-    "unique": true
-  },
-  {
-    "v": 2,
-    "key": {
       "email": 1
     },
     "name": "email_1",
@@ -26,5 +18,6 @@ INDEXES:
 ]
 
 USERS:
-reddysarvaghna@gmail.com | verified:undefined
-sreesaivikas35@gmail.com | verified:true
+sanikadali70@gmail.com | verified:true
+dalishrikanr@gmail.com | verified:true
+dalisampada@gmail.com | verified:true

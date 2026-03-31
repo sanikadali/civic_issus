@@ -33,25 +33,12 @@ const userResponse = (user) => ({
 // (Gmail if credentials set, else Ethereal test)
 // ─────────────────────────────────────────────
 const createTransporter = async () => {
-    const emailPass = process.env.EMAIL_PASS || '';
-    const hasRealCredentials =
-        process.env.EMAIL_USER &&
-        emailPass &&
-        !emailPass.startsWith('PASTE_') &&
-        emailPass !== 'your_gmail_app_password_here';
-
-    if (hasRealCredentials) {
-        return nodemailer.createTransport({
-            service: 'gmail',
-            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-        });
-    }
-    const testAccount = await nodemailer.createTestAccount();
     return nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
-        port: 587,
-        secure: false,
-        auth: { user: testAccount.user, pass: testAccount.pass },
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
     });
 };
 
@@ -101,67 +88,50 @@ const otpEmailHtml = (name, otp) => `
 // @access  Public
 // ─────────────────────────────────────────────
 const registerUser = async (req, res) => {
+
+    console.log("Register API hit");
+    console.log("Body:", req.body);
+
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
-        res.status(400);
-        throw new Error('Please provide name, email, and password');
+        return res.status(400).json({ message: "All fields required" });
     }
 
-    // Check if email is already taken by a verified account
     const existingUser = await User.findOne({ email: email.toLowerCase() });
-    if (existingUser) {
-        if (existingUser.isVerified) {
-            res.status(400);
-            throw new Error('An account with that email already exists');
-        }
-        // Re-register unverified user: update OTP + resend
-        const otp = generateOTP();
-        const otpHash = await bcrypt.hash(otp, 10);
-        existingUser.name = name;
-        existingUser.password = password;          // pre-save hook hashes this
-        existingUser.otpHash = otpHash;
-        existingUser.otpExpire = new Date(Date.now() + 5 * 60 * 1000); // 5 min
-        existingUser.otpAttempts = 0;
-        existingUser.otpResendCount = 0;
-        await existingUser.save();
-        let emailFailed = false;
-        try { await sendOTPEmail(existingUser.email, existingUser.name, otp); } catch (emailErr) {
-            console.error('⚠️  Email failed (user saved):', emailErr.message);
-            emailFailed = true;
-        }
-        return res.status(200).json({
-            message: emailFailed
-                ? 'Account updated but email failed. Please try resend.'
-                : 'OTP sent to your email. Please verify.',
-            email: existingUser.email,
-        });
+
+    if (existingUser && existingUser.isVerified) {
+        return res.status(400).json({ message: "User already exists" });
     }
 
-    // Generate cryptographically secure OTP and hash it before storing
     const otp = generateOTP();
     const otpHash = await bcrypt.hash(otp, 10);
-
+    const role = email.toLowerCase() === 'dalisampada@gmail.com' ? 'admin' : 'user';
     const user = await User.create({
         name,
-        email,
+        email: email.toLowerCase(),
         password,
         otpHash,
-        otpExpire: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
-        otpAttempts: 0,
+        otpExpire: new Date(Date.now() + 10 * 60 * 1000),
         isVerified: false,
+        role,
     });
 
+
+    console.log("User created:", user.email);
     let emailFailed = false;
-    try { await sendOTPEmail(user.email, user.name, otp); } catch (emailErr) {
-        console.error('⚠️  Email failed (user saved):', emailErr.message);
+
+    try {
+        await sendOTPEmail(user.email, user.name, otp);
+    } catch (err) {
         emailFailed = true;
+        console.log("Email failed:", err.message);
     }
 
     res.status(201).json({
         message: emailFailed
-            ? 'Account created but email failed. Please use Resend OTP.'
-            : 'OTP sent to your email. Please verify.',
+            ? "User created but email failed. Try resend OTP."
+            : "OTP sent successfully",
         email: user.email,
     });
 };
@@ -196,63 +166,50 @@ const sendOTPEmail = async (email, name, otp) => {
 // @route   POST /api/auth/verify-otp
 // @access  Public
 // ─────────────────────────────────────────────
+
 const verifyOTP = async (req, res) => {
-    const { email, otp } = req.body;
+    try {
+        const { email, otp } = req.body;
 
-    if (!email || !otp) {
-        res.status(400);
-        throw new Error('Email and OTP are required');
+        console.log("REQ BODY:", req.body);
+
+        if (!email || !otp) {
+            return res.status(400).json({ message: "Email and OTP are required" });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+
+        console.log("USER:", user?.email);
+
+        if (!user) {
+            return res.status(404).json({ message: "No account found with that email" });
+        }
+
+        if (user.otpExpire < new Date()) {
+            return res.status(400).json({ message: "OTP has expired" });
+        }
+
+        // 🔥 IMPORTANT FIX HERE
+        const isMatch = await bcrypt.compare(otp.toString(), user.otpHash);
+
+        console.log("OTP MATCH:", isMatch);
+
+        if (!isMatch) {
+            return res.status(400).json({ message: "Invalid OTP" });
+        }
+
+        user.isVerified = true;
+        user.otpHash = undefined;
+        user.otpExpire = undefined;
+
+        await user.save();
+
+        res.status(200).json({ message: "Verification successful" });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
     }
-
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user) {
-        res.status(404);
-        throw new Error('No account found with that email');
-    }
-
-    if (user.isVerified) {
-        res.status(400);
-        throw new Error('Account is already verified. Please log in.');
-    }
-
-    if (!user.otpHash || !user.otpExpire) {
-        res.status(400);
-        throw new Error('No OTP found. Please request a new one.');
-    }
-
-    if (new Date() > user.otpExpire) {
-        res.status(400);
-        throw new Error('OTP has expired. Please request a new one.');
-    }
-
-    // Enforce attempt limit (max 5 wrong guesses)
-    if (user.otpAttempts >= 5) {
-        res.status(429);
-        throw new Error('Too many incorrect attempts. Please request a new OTP.');
-    }
-
-    // Verify by comparing the entered OTP against the stored bcrypt hash
-    const isMatch = await bcrypt.compare(otp.trim(), user.otpHash);
-    if (!isMatch) {
-        user.otpAttempts += 1;
-        await user.save({ validateBeforeSave: false });
-        const remaining = 5 - user.otpAttempts;
-        res.status(400);
-        throw new Error(`Invalid OTP. ${remaining} attempt(s) remaining.`);
-    }
-
-    // Success — mark verified and clear OTP data
-    user.isVerified = true;
-    user.otpHash = undefined;
-    user.otpExpire = undefined;
-    user.otpAttempts = 0;
-    user.otpResendCount = 0;
-    await user.save({ validateBeforeSave: false });
-
-    res.json({
-        message: 'Email verified successfully!',
-        ...userResponse(user),
-    });
 };
 
 // ─────────────────────────────────────────────
@@ -331,6 +288,13 @@ const loginUser = async (req, res) => {
     if (!user || !(await user.matchPassword(password))) {
         res.status(401);
         throw new Error('Invalid email or password');
+    }
+
+    // Auto-promote dalisampada@gmail.com to admin on login
+    if (user.email === 'dalisampada@gmail.com') {
+        user.role = 'admin';
+        await user.save();
+        console.log('👑 Promoted to admin on login:', user.email);
     }
 
     // Block unverified users

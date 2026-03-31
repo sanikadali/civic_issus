@@ -13,10 +13,13 @@ const ViewComplaints = () => {
     const [editingComplaint, setEditingComplaint] = useState(null);
     const [editForm, setEditForm] = useState({ title: '', description: '', address: '' });
 
+    // ✅ FILTER STATE
+    const [statusFilter, setStatusFilter] = useState('all');
+
     useEffect(() => {
         const fetchComplaints = async () => {
             try {
-                const res = await axios.get('http://localhost:5000/api/complaints');
+                const res = await axios.get('http://localhost:8000/api/complaints');
                 setComplaints(res.data);
             } catch (e) { console.error(e); }
             finally { setLoading(false); }
@@ -26,10 +29,24 @@ const ViewComplaints = () => {
         fetchComplaints();
     }, []);
 
+    // ✅ FILTER MAP
+    const filterMap = {
+        'All Status': 'all',
+        'Pending': 'received',
+        'In Review': 'in_review',
+        'Resolved': 'resolved'
+    };
+
+    // ✅ FILTER LOGIC
+    const filteredComplaints = complaints.filter(c => {
+        if (statusFilter === 'all') return true;
+        return c.status === statusFilter;
+    });
+
     const handleVote = async (id, voteType) => {
         if (!user?.token) { alert('Please login to vote'); return; }
         try {
-            const res = await axios.put(`http://localhost:5000/api/complaints/${id}/vote`, { voteType }, { headers: { Authorization: `Bearer ${user.token}` } });
+            const res = await axios.put(`http://localhost:8000/api/complaints/${id}/vote`, { voteType }, { headers: { Authorization: `Bearer ${user.token}` } });
             setComplaints(complaints.map(c => c._id === id ? res.data : c));
         } catch { alert('Failed to vote'); }
     };
@@ -37,7 +54,7 @@ const ViewComplaints = () => {
     const handleStatusUpdate = async (id, newStatus) => {
         if (!user?.token) return;
         try {
-            await axios.put(`http://localhost:5000/api/complaints/${id}`, { status: newStatus }, { headers: { Authorization: `Bearer ${user.token}` } });
+            await axios.put(`http://localhost:8000/api/complaints/${id}`, { status: newStatus }, { headers: { Authorization: `Bearer ${user.token}` } });
             setComplaints(complaints.map(c => c._id === id ? { ...c, status: newStatus } : c));
         } catch { alert('Failed to update status'); }
     };
@@ -45,7 +62,7 @@ const ViewComplaints = () => {
     const handleDelete = async (id) => {
         if (!window.confirm('Delete this complaint?')) return;
         try {
-            await axios.delete(`http://localhost:5000/api/complaints/${id}`, { headers: { Authorization: `Bearer ${user.token}` } });
+            await axios.delete(`http://localhost:8000/api/complaints/${id}`, { headers: { Authorization: `Bearer ${user.token}` } });
             setComplaints(complaints.filter(c => c._id !== id));
         } catch { alert('Failed to delete complaint'); }
     };
@@ -56,7 +73,7 @@ const ViewComplaints = () => {
     const handleEditSubmit = async (e) => {
         e.preventDefault();
         try {
-            await axios.put(`http://localhost:5000/api/complaints/${editingComplaint}`, editForm, { headers: { Authorization: `Bearer ${user.token}` } });
+            await axios.put(`http://localhost:8000/api/complaints/${editingComplaint}`, editForm, { headers: { Authorization: `Bearer ${user.token}` } });
             setComplaints(complaints.map(c => c._id === editingComplaint ? { ...c, ...editForm } : c));
             cancelEditing();
         } catch { alert('Failed to update'); }
@@ -69,7 +86,7 @@ const ViewComplaints = () => {
         const text = newComments[id];
         if (!text) return;
         try {
-            const res = await axios.post(`http://localhost:5000/api/complaints/${id}/comment`, { text }, { headers: { Authorization: `Bearer ${user.token}` } });
+            const res = await axios.post(`http://localhost:8000/api/complaints/${id}/comment`, { text }, { headers: { Authorization: `Bearer ${user.token}` } });
             setComplaints(complaints.map(c => c._id === id ? res.data : c));
             setNewComments(prev => ({ ...prev, [id]: '' }));
         } catch { alert('Failed to post comment'); }
@@ -108,10 +125,19 @@ const ViewComplaints = () => {
                     <p className="text-gray-500">Browse, vote, and comment on civic issues in your community</p>
                 </div>
 
-                {/* Filters */}
+                {/* ✅ FILTERS */}
                 <div className="flex gap-3 mb-7 flex-wrap">
-                    {['All Status', 'Pending', 'In Review', 'Resolved'].map(f => (
-                        <button key={f} className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-600 rounded-lg hover:border-primary/40 hover:text-primary transition-all">{f}</button>
+                    {Object.keys(filterMap).map(f => (
+                        <button
+                            key={f}
+                            onClick={() => setStatusFilter(filterMap[f])}
+                            className={`px-4 py-2 text-sm rounded-lg border transition-all 
+                            ${statusFilter === filterMap[f]
+                                ? 'bg-primary text-white'
+                                : 'bg-white border-gray-200 text-gray-600 hover:border-primary/40 hover:text-primary'}`}
+                        >
+                            {f}
+                        </button>
                     ))}
                 </div>
 
@@ -119,16 +145,17 @@ const ViewComplaints = () => {
                     <div className="flex justify-center items-center h-64">
                         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
                     </div>
-                ) : complaints.length === 0 ? (
+                ) : filteredComplaints.length === 0 ? (
                     <div className="text-center py-20 bg-white border border-gray-100 rounded-2xl shadow-sm">
-                        <p className="text-gray-400 text-lg font-medium">No community reports found yet.</p>
+                        <p className="text-gray-400 text-lg font-medium">No reports found for this filter.</p>
                         <Link to="/report-issue">
                             <button className="mt-4 bg-primary hover:bg-primary-hover text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-sm">Be the first to report!</button>
                         </Link>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                        {complaints.map((complaint) => (
+                        {filteredComplaints.map((complaint) => (
+                            // ✅ YOUR FULL ORIGINAL CARD (UNCHANGED)
                             <div key={complaint._id} className="bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col p-6">
                                 {/* Card Header */}
                                 <div className="flex justify-between items-start gap-4 mb-3">

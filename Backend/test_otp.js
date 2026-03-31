@@ -8,7 +8,7 @@ const body = JSON.stringify({ name: 'Test User', email: testEmail, password: 'Te
 function post(path, body) {
     return new Promise((resolve) => {
         const req = http.request({
-            hostname: 'localhost', port: 5000, path, method: 'POST',
+            hostname: 'localhost', port: 8000, path, method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
         }, (res) => {
             let data = '';
